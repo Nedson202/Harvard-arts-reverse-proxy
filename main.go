@@ -1,0 +1,70 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/gorilla/handlers"
+	"github.com/nedson202/harvard-arts-reverse-proxy/config"
+	"github.com/nedson202/harvard-arts-reverse-proxy/routes"
+	"github.com/subosito/gotenv"
+)
+
+func init() {
+	err := gotenv.Load()
+	config.LogFatal(err)
+}
+
+func main() {
+	router := routes.NewRouter()
+
+	allowedOrigins := handlers.AllowedOrigins([]string{"*"})
+	allowedMethods := handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "PUT"})
+
+	port := os.Getenv("PORT")
+
+	combineServerAddress := fmt.Sprintf("%s%s", ":", port)
+
+	server := &http.Server{
+		// launch server with CORS validations
+		Handler:      handlers.CORS(allowedOrigins, allowedMethods)(router),
+		Addr:         combineServerAddress,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+	}
+
+	// Start Server
+	func() {
+		startMessage := fmt.Sprintf("%s%s", "Starting Server on http://localhost:", port)
+		log.Println(startMessage)
+
+		if err := server.ListenAndServe(); err != nil {
+			config.LogFatal(err)
+		}
+	}()
+
+	handleShutdown(server)
+}
+
+// Handle graceful shutdown
+func handleShutdown(server *http.Server) {
+	interruptChan := make(chan os.Signal, 1)
+	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	// Block until we receive our signal.
+	<-interruptChan
+
+	// Create a deadline to wait for.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	server.Shutdown(ctx)
+
+	log.Println("Shutting down server")
+	os.Exit(0)
+}
