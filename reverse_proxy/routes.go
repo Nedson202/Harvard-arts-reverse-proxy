@@ -7,8 +7,10 @@ import (
 )
 
 var routes []Route
-var collectionsRoute []Route
 var healthCheckRoute Route
+var collectionsRoute []Route
+var publicationsRoute []Route
+var placesRoute []Route
 
 func (app App) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	app.RespondWithJSON(w, http.StatusOK,
@@ -19,8 +21,7 @@ func (app App) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-// GetHealthChecker .
-func (app App) GetHealthChecker() Route {
+func (app App) getHealthChecker() Route {
 	healthCheckRoute = Route{
 		"Index",
 		"GET",
@@ -31,25 +32,68 @@ func (app App) GetHealthChecker() Route {
 	return healthCheckRoute
 }
 
-// GetHealthChecker .
-func (app App) GetCollectionRoutes() []Route {
-	collectionsRoute = append(collectionsRoute, Route{
-		"Index",
-		"GET",
-		"/objects",
-		app.GetCollections,
-	})
+func (app App) getCollectionRoutes() []Route {
+	collectionsRoute = append(collectionsRoute,
+		Route{
+			"Index",
+			"GET",
+			"/harvard-arts/object",
+			app.GetCollections,
+		},
+		Route{
+			"Index",
+			"GET",
+			"/harvard-arts/object/{objectId}",
+			app.GetCollection,
+		},
+	)
 
 	return collectionsRoute
 }
 
+func (app App) getPublicationRoutes() []Route {
+	publicationsRoute = append(publicationsRoute,
+		Route{
+			"Index",
+			"GET",
+			"/harvard-arts/publications",
+			app.GetPublications,
+		},
+	)
+
+	return publicationsRoute
+}
+
+func (app App) getPlacesRoutes() []Route {
+	placesRoute = append(placesRoute,
+		Route{
+			"Index",
+			"GET",
+			"/harvard-arts/places/id",
+			app.GetPlaceIds,
+		},
+		Route{
+			"Index",
+			"GET",
+			"/harvard-arts/places",
+			app.GetPlaces,
+		},
+	)
+
+	return placesRoute
+}
+
 //NewRouter configures a new router to the API
 func (app App) NewRouter(router *mux.Router) *mux.Router {
-	healthChecker := app.GetHealthChecker()
-	GetCollectionRoutes := app.GetCollectionRoutes()
+	healthChecker := app.getHealthChecker()
+	getCollectionRoutes := app.getCollectionRoutes()
+	getPublicationRoutes := app.getPublicationRoutes()
+	getPlacesRoutes := app.getPlacesRoutes()
 
 	routes = append(routes, healthChecker)
-	routes = append(routes, GetCollectionRoutes...)
+	routes = append(routes, getCollectionRoutes...)
+	routes = append(routes, getPublicationRoutes...)
+	routes = append(routes, getPlacesRoutes...)
 	combineRoutes := router.StrictSlash(true)
 
 	for _, route := range routes {

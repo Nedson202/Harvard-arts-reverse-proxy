@@ -17,18 +17,6 @@ import (
 	"github.com/subosito/gotenv"
 )
 
-// func init() {
-// 	err := gotenv.Load()
-// 	reverse_proxy.LogFatal(err)
-
-// 	// Connect redis client
-// 	redisHost := os.Getenv("REDIS_HOST")
-
-// 	result, err := redis.ConnectClient(redisHost)
-// 	reverse_proxy.LogFatal(err)
-// 	log.Println(result)
-// }
-
 func main() {
 	err := gotenv.Load()
 	if err != nil {
@@ -41,7 +29,7 @@ func main() {
 	allowedMethods := handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "PUT"})
 
 	port := os.Getenv("PORT")
-	redisHost := os.Getenv("REDIS_HOST")
+	redisHost := os.Getenv("REDIS_URL")
 	baseURL := os.Getenv("HARVARD_API_BASE_URL")
 	harvardAPIKey := os.Getenv("HARVARD_ARTS_API_KEY")
 

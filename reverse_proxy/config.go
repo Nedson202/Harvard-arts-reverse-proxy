@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 )
@@ -73,4 +74,16 @@ func (app App) RetrieveDataFromHarvardAPI(url string) (body []byte) {
 	}
 
 	return body
+}
+
+func (app App) RandomizeData(data []interface{}) (shuffled []interface{}) {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+
+	for n := len(data); n > 0; n-- {
+		randIndex := r.Intn(n)
+
+		data[n-1], data[randIndex] = data[randIndex], data[n-1]
+	}
+
+	return data
 }

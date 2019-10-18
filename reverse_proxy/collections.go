@@ -5,84 +5,98 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 func (app App) GetCollections(w http.ResponseWriter, r *http.Request) {
 	var response CollectionsResponse
-	requestURL := fmt.Sprintf("object?apikey=%s", app.harvardAPIKey)
-	// requestURL := `object?apikey=${HARVARD_API_KEY}&hasimage=1&size=${size}&page=${page}`
 
-	result := app.RetrieveDataFromHarvardAPI(requestURL)
-	err := json.Unmarshal(result, &response)
+	page := r.URL.Query().Get("page")
+	size := r.URL.Query().Get("size")
+
+	redisHash := fmt.Sprintf("objects - size %s - page %s", size, page)
+	collectionsFromRedis := app.GetDataFromRedis(redisHash)
+
+	redisDataToByte := []byte(collectionsFromRedis)
+	err := json.Unmarshal(redisDataToByte, &response)
 	if err != nil {
 		log.Println(err)
-
-		return
 	}
 
+	if response.Records == nil {
+		requestURL := fmt.Sprintf("object?apikey=%s&hasimage=1&size=%s&page=%s", app.harvardAPIKey, size, page)
+
+		result := app.RetrieveDataFromHarvardAPI(requestURL)
+		err = json.Unmarshal(result, &response)
+		if err != nil {
+			log.Println(err)
+
+			return
+		}
+
+		app.AddDataToRedis(redisHash, result)
+	}
+
+	randomizedData := app.RandomizeData(response.Records)
+
 	app.RespondWithJSON(w, http.StatusOK,
-		DataPayload{
+		RecordsPayload{
 			Error:   false,
-			Message: "Collection objects retrieved successfully",
-			Data:    response.Records,
+			Message: "Harvard art objects retrieved successfully",
+			Records: randomizedData,
 		},
 	)
 
 	return
 }
 
-// public static async getObjects(req: Request, res: Response, next: NextFunction) {
-//   try {
+func (app App) GetCollection(w http.ResponseWriter, r *http.Request) {
+	var response interface{}
 
-//     let objects: any;
-//     const { size, page } = req.query;
-//     const redisHash = `objects - size ${size} - page ${page}`;
-//     objects = await getDataFromRedis(redisHash);
+	params := mux.Vars(r)
+	objectID := params["objectId"]
 
-//     if (!objects) {
-//       const url = `object?apikey=${HARVARD_API_KEY}&hasimage=1&size=${size}&page=${page}`;
-//       objects = await ArtsController.retrieveDataFromHarvardAPI(url);
-//       addDataToRedis(redisHash, objects);
-//       elasticBulkCreate(objects.records);
-//     }
-//     const randomizedData = ArtsController.dataRandomizer(objects.records);
+	redisHash := fmt.Sprintf("objectId-%s", objectID)
+	objectFromRedis := app.GetDataFromRedis(redisHash)
 
-//     if (objects) {
-//       return res.status(200).json({
-//         error: false,
-//         message: 'Harvard art objects retrieved successfully',
-//         records: randomizedData,
-//       });
-//     }
-//   } catch (error) {
-//     error.httpStatusCode = 500;
-//     return next(error);
-//   }
-// }
+	redisDataToByte := []byte(objectFromRedis)
+	err := json.Unmarshal(redisDataToByte, &response)
+	if err != nil {
+		log.Println(err)
+	}
 
-// public static async getObject(req: Request, res: Response, next: NextFunction) {
-//   try {
-//     const { objectId } = req.params;
-//     let queryResponse: any = '';
-//     const redisHash = `objectId-${objectId}`;
-//     queryResponse = await getDataFromRedis(redisHash);
+	if response != nil {
+		app.RespondWithJSON(w, http.StatusOK,
+			RecordPayload{
+				Error:   false,
+				Message: "Harvard art objects retrieved successfully",
+				Record:  response,
+			},
+		)
 
-//     if (!queryResponse) {
-//       const url = `object/${objectId}?apikey=${HARVARD_API_KEY}`;
-//       queryResponse = await ArtsController.retrieveDataFromHarvardAPI(url);
-//       addDocument(queryResponse, 'art');
-//       addDataToRedis(redisHash, queryResponse);
-//     }
+		return
+	}
 
-//     if (queryResponse) {
-//       return res.status(200).json({
-//         error: false,
-//         message: 'Harvard art object retrieved successfully',
-//         record: queryResponse,
-//       });
-//     }
-//   } catch (error) {
-//     error.httpStatusCode = 500;
-//     return next(error);
-//   }
-// }
+	requestURL := fmt.Sprintf("object/%s?apikey=%s", objectID, app.harvardAPIKey)
+
+	result := app.RetrieveDataFromHarvardAPI(requestURL)
+	err = json.Unmarshal(result, &response)
+	if err != nil {
+		log.Println(err)
+
+		return
+	}
+
+	app.AddDataToRedis(redisHash, result)
+
+	app.RespondWithJSON(w, http.StatusOK,
+		RecordPayload{
+			Error:   false,
+			Message: "Harvard art objects retrieved successfully",
+			Record:  response,
+		},
+	)
+
+	return
+}
