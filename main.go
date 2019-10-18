@@ -10,24 +10,33 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/nedson202/harvard-arts-reverse-proxy/reverse_proxy"
+
 	"github.com/gorilla/handlers"
-	"github.com/nedson202/harvard-arts-reverse-proxy/config"
-	"github.com/nedson202/harvard-arts-reverse-proxy/routes"
+	"github.com/gorilla/mux"
 	"github.com/subosito/gotenv"
 )
 
-func init() {
-	err := gotenv.Load()
-	config.LogFatal(err)
-}
-
 func main() {
-	router := routes.NewRouter()
+	err := gotenv.Load()
+	if err != nil {
+		log.Println(err)
+	}
+
+	router := mux.NewRouter()
 
 	allowedOrigins := handlers.AllowedOrigins([]string{"*"})
 	allowedMethods := handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "PUT"})
 
 	port := os.Getenv("PORT")
+	redisHost := os.Getenv("REDIS_URL")
+	baseURL := os.Getenv("HARVARD_API_BASE_URL")
+	harvardAPIKey := os.Getenv("HARVARD_ARTS_API_KEY")
+
+	_, err = reverse_proxy.New(redisHost, router, baseURL, harvardAPIKey)
+	if err != nil {
+		log.Println(err)
+	}
 
 	combineServerAddress := fmt.Sprintf("%s%s", ":", port)
 
@@ -45,7 +54,7 @@ func main() {
 		log.Println(startMessage)
 
 		if err := server.ListenAndServe(); err != nil {
-			config.LogFatal(err)
+			log.Println(err)
 		}
 	}()
 
