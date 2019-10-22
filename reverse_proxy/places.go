@@ -27,8 +27,7 @@ func (app App) GetPlaceIds(w http.ResponseWriter, r *http.Request) {
 	placesDataFromRedis := app.GetDataFromRedis(redisHash)
 
 	redisDataToByte := []byte(placesDataFromRedis)
-	err = json.Unmarshal(redisDataToByte, &allPlacesIdsRedis)
-	if err != nil {
+	if err = json.Unmarshal(redisDataToByte, &allPlacesIdsRedis); err != nil {
 		log.Println(err, "PlaceIds retrieval from redis")
 	}
 
@@ -36,7 +35,6 @@ func (app App) GetPlaceIds(w http.ResponseWriter, r *http.Request) {
 		// app.AddDataToRedis(redisHash, "")
 	}
 
-	log.Println(len(allPlacesIdsRedis), "allPlacesIdsRedis", parseFrom, parseSize)
 	partitionData := allPlacesIdsRedis[parseFrom : parseSize+parseFrom]
 
 	app.RespondWithJSON(w, http.StatusOK,
@@ -53,6 +51,7 @@ func (app App) GetPlaceIds(w http.ResponseWriter, r *http.Request) {
 func (app App) GetPlaces(w http.ResponseWriter, r *http.Request) {
 	var allPlaces []Place
 	var filteredPlaces []Place
+	var err error
 
 	placeID := r.URL.Query().Get("placeId")
 	parsePlaceID, err := strconv.Atoi(placeID)
@@ -64,8 +63,7 @@ func (app App) GetPlaces(w http.ResponseWriter, r *http.Request) {
 	placesDataFromRedis := app.GetDataFromRedis(redisHash)
 
 	redisDataToByte := []byte(placesDataFromRedis)
-	err = json.Unmarshal(redisDataToByte, &allPlaces)
-	if err != nil {
+	if err = json.Unmarshal(redisDataToByte, &allPlaces); err != nil {
 		log.Println(err, "Places data retrieval from redis")
 	}
 
@@ -87,15 +85,6 @@ func (app App) GetPlaces(w http.ResponseWriter, r *http.Request) {
 		allPlaces = allPlaces[0:100]
 	}
 
-	// var allPlacesInterface []interface{}
-	// err = json.Unmarshal(redisDataToByte, &allPlacesInterface)
-	// if err != nil {
-	// 	log.Println(err, "PlaceIds retrieval from redis")
-	// }
-
-	// randomizedData := app.RandomizeData(allPlacesInterface)
-
-	log.Println(len(allPlaces), "this is the total length of filtered", placeID)
 	app.RespondWithJSON(w, http.StatusOK,
 		PlacesPayload{
 			Error:   false,

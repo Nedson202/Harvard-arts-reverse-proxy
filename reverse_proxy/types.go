@@ -3,6 +3,7 @@ package reverse_proxy
 import (
 	"net/http"
 
+	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/go-redis/redis/v7"
 )
 
@@ -10,6 +11,7 @@ type App struct {
 	baseURL       string
 	harvardAPIKey string
 	redisClient   *redis.Client
+	elasticClient *elasticsearch.Client
 }
 
 // Route defines a structure for routes
@@ -67,6 +69,12 @@ type PlacesPayload struct {
 	Error   bool    `json:"error"`
 	Message string  `json:"message"`
 	Places  []Place `json:"places"`
+}
+
+type SearchResultsPayload struct {
+	Error   bool        `json:"error"`
+	Message string      `json:"message"`
+	Results interface{} `json:"results"`
 }
 
 type PlaceID struct {

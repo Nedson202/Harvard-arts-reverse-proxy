@@ -11,6 +11,7 @@ import (
 
 func (app App) GetCollections(w http.ResponseWriter, r *http.Request) {
 	var response CollectionsResponse
+	var err error
 
 	page := r.URL.Query().Get("page")
 	size := r.URL.Query().Get("size")
@@ -19,8 +20,7 @@ func (app App) GetCollections(w http.ResponseWriter, r *http.Request) {
 	collectionsFromRedis := app.GetDataFromRedis(redisHash)
 
 	redisDataToByte := []byte(collectionsFromRedis)
-	err := json.Unmarshal(redisDataToByte, &response)
-	if err != nil {
+	if err = json.Unmarshal(redisDataToByte, &response); err != nil {
 		log.Println(err)
 	}
 
@@ -28,8 +28,7 @@ func (app App) GetCollections(w http.ResponseWriter, r *http.Request) {
 		requestURL := fmt.Sprintf("object?apikey=%s&hasimage=1&size=%s&page=%s", app.harvardAPIKey, size, page)
 
 		result := app.RetrieveDataFromHarvardAPI(requestURL)
-		err = json.Unmarshal(result, &response)
-		if err != nil {
+		if err = json.Unmarshal(result, &response); err != nil {
 			log.Println(err)
 
 			return
@@ -53,6 +52,7 @@ func (app App) GetCollections(w http.ResponseWriter, r *http.Request) {
 
 func (app App) GetCollection(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
+	var err error
 
 	params := mux.Vars(r)
 	objectID := params["objectId"]
@@ -61,8 +61,7 @@ func (app App) GetCollection(w http.ResponseWriter, r *http.Request) {
 	objectFromRedis := app.GetDataFromRedis(redisHash)
 
 	redisDataToByte := []byte(objectFromRedis)
-	err := json.Unmarshal(redisDataToByte, &response)
-	if err != nil {
+	if err := json.Unmarshal(redisDataToByte, &response); err != nil {
 		log.Println(err)
 	}
 
@@ -81,8 +80,7 @@ func (app App) GetCollection(w http.ResponseWriter, r *http.Request) {
 	requestURL := fmt.Sprintf("object/%s?apikey=%s", objectID, app.harvardAPIKey)
 
 	result := app.RetrieveDataFromHarvardAPI(requestURL)
-	err = json.Unmarshal(result, &response)
-	if err != nil {
+	if err = json.Unmarshal(result, &response); err != nil {
 		log.Println(err)
 
 		return

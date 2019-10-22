@@ -46,6 +46,12 @@ func (app App) getCollectionRoutes() []Route {
 			"/harvard-arts/object/{objectId}",
 			app.GetCollection,
 		},
+		Route{
+			"Index",
+			"GET",
+			"/harvard-arts/search",
+			app.SearchCollections,
+		},
 	)
 
 	return collectionsRoute

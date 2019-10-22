@@ -26,6 +26,8 @@ func (app App) Logger(inner http.Handler, name string) http.Handler {
 			"%s\t%s\t%s\t%s",
 			r.Method,
 			r.RequestURI,
+			r.RemoteAddr,
+			r.UserAgent(),
 			name,
 			time.Since(start),
 		)
