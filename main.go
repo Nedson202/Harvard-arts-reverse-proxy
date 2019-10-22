@@ -32,8 +32,9 @@ func main() {
 	redisHost := os.Getenv("REDIS_URL")
 	baseURL := os.Getenv("HARVARD_API_BASE_URL")
 	harvardAPIKey := os.Getenv("HARVARD_ARTS_API_KEY")
+	elasticSearchURL := os.Getenv("BONSAI_URL")
 
-	_, err = reverse_proxy.New(redisHost, router, baseURL, harvardAPIKey)
+	_, err = reverse_proxy.New(redisHost, router, baseURL, harvardAPIKey, elasticSearchURL)
 	if err != nil {
 		log.Println(err)
 	}
@@ -50,7 +51,7 @@ func main() {
 
 	// Start Server
 	func() {
-		startMessage := fmt.Sprintf("%s%s", "Starting Server on http://localhost:", port)
+		startMessage := fmt.Sprintf("%s%s", "Server started on http://localhost:", port)
 		log.Println(startMessage)
 
 		if err := server.ListenAndServe(); err != nil {

@@ -23,4 +23,4 @@ clean: down
 
 start-dev:
 	@echo "=============starting api in development mode============="
-	compileDaemon -build="go build -o bin/harvard-arts-reverse-proxy ." -command="./bin/harvard-arts-reverse-proxy" -color -graceful-kill
+	compileDaemon -log-prefix=false -build="go build -o bin/harvard-arts-reverse-proxy ." -command="./bin/harvard-arts-reverse-proxy" -color -graceful-kill
