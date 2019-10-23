@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
@@ -32,7 +36,7 @@ func ConnectElasticClient(elasticSearchURL string) (client *elasticsearch.Client
 
 	client, err = elasticsearch.NewClient(cfg)
 	if err != nil {
-		log.Fatalf("Error creating the client: %s", err)
+		log.Println("Error creating the client: %s", err)
 	}
 
 	verifyOrCreateIndex(ctx, indices, client)
@@ -49,7 +53,9 @@ func verifyOrCreateIndex(ctx context.Context, indices []string, client *elastics
 
 	indexExistsRes, err := req.Do(ctx, client)
 	if err != nil {
-		log.Fatalf("Error getting response: %s", err)
+		log.Println("Error getting response: %s", err)
+
+		return
 	}
 	defer indexExistsRes.Body.Close()
 
@@ -60,7 +66,9 @@ func verifyOrCreateIndex(ctx context.Context, indices []string, client *elastics
 
 		indexCreateRes, err := req.Do(ctx, client)
 		if err != nil {
-			log.Fatalf("Error getting response: %s", err)
+			log.Println("Error getting response: %s", err)
+
+			return
 		}
 
 		if !indexCreateRes.IsError() {
@@ -199,4 +207,165 @@ func (app App) SearchCollections(w http.ResponseWriter, r *http.Request) {
 	)
 
 	return
+}
+
+func (app App) ElasticBulkWrite(collections []CollectionsObject) {
+	var (
+		_     = fmt.Print
+		count int
+		batch int
+	)
+
+	flag.IntVar(&count, "count", 1000, "Number of documents to generate")
+	flag.IntVar(&batch, "batch", 255, "Number of documents to send in one batch")
+	flag.Parse()
+
+	log.SetFlags(0)
+
+	type bulkResponse struct {
+		Errors bool `json:"errors"`
+		Items  []struct {
+			Index struct {
+				ID     string `json:"_id"`
+				Result string `json:"result"`
+				Status int    `json:"status"`
+				Error  struct {
+					Type   string `json:"type"`
+					Reason string `json:"reason"`
+					Cause  struct {
+						Type   string `json:"type"`
+						Reason string `json:"reason"`
+					} `json:"caused_by"`
+				} `json:"error"`
+			} `json:"index"`
+		} `json:"items"`
+	}
+
+	var (
+		buf bytes.Buffer
+		res *esapi.Response
+		raw map[string]interface{}
+		blk *bulkResponse
+
+		indexName = "arts"
+
+		numItems   int
+		numErrors  int
+		numIndexed int
+		numBatches int
+		currBatch  int
+	)
+
+	if count%batch == 0 {
+		numBatches = (count / batch)
+	} else {
+		numBatches = (count / batch) + 1
+	}
+
+	start := time.Now().UTC()
+
+	// Loop over the collection
+	for i, c := range collections {
+		numItems++
+
+		currBatch = i / batch
+		if i == count-1 {
+			currBatch++
+		}
+
+		// Prepare the metadata payload
+		meta := []byte(fmt.Sprintf(`{ "index" : { "_id" : "%d" } }%s`, c.ID, "\n"))
+
+		// Prepare the data payload: encode article to JSON
+		data, err := json.Marshal(c)
+		if err != nil {
+			log.Fatalf("Cannot encode article %d: %s", c.ID, err)
+		}
+
+		// Append newline to the data payload
+		data = append(data, "\n"...)
+
+		buf.Grow(len(meta) + len(data))
+		buf.Write(meta)
+		buf.Write(data)
+
+		// When a threshold is reached, execute the Bulk() request with body from buffer
+		if i > 0 && i%batch == 0 || i == count-1 {
+			log.Printf("> Batch %-2d of %d", currBatch, numBatches)
+
+			res, err = app.elasticClient.Bulk(bytes.NewReader(buf.Bytes()), app.elasticClient.Bulk.WithIndex(indexName))
+			if err != nil {
+				log.Fatalf("Failure indexing batch %d: %s", currBatch, err)
+			}
+
+			// If the whole request failed, print error and mark all documents as failed
+			if res.IsError() {
+				numErrors += numItems
+				if err := json.NewDecoder(res.Body).Decode(&raw); err != nil {
+					log.Fatalf("Failure to to parse response body: %s", err)
+				} else {
+					log.Printf("  Error: [%d] %s: %s",
+						res.StatusCode,
+						raw["error"].(map[string]interface{})["type"],
+						raw["error"].(map[string]interface{})["reason"],
+					)
+				}
+
+				// A successful response might still contain errors for particular documents...
+			} else {
+				if err := json.NewDecoder(res.Body).Decode(&blk); err != nil {
+					log.Fatalf("Failure to to parse response body: %s", err)
+				} else {
+					for _, d := range blk.Items {
+						// ... so for any HTTP status above 201 ...
+						if d.Index.Status > 201 {
+							// ... increment the error counter ...
+							numErrors++
+
+							// ... and print the response status and error information ...
+							log.Printf("  Error: [%d]: %s: %s: %s: %s",
+								d.Index.Status,
+								d.Index.Error.Type,
+								d.Index.Error.Reason,
+								d.Index.Error.Cause.Type,
+								d.Index.Error.Cause.Reason,
+							)
+						} else {
+							// ... otherwise increase the success counter.
+							numIndexed++
+						}
+					}
+				}
+			}
+
+			// Close the response body, to prevent reaching the limit for goroutines or file handles
+			res.Body.Close()
+
+			// Reset the buffer and items counter
+			buf.Reset()
+			numItems = 0
+		}
+	}
+
+	// Report the results: number of indexed docs, number of errors, duration, indexing rate
+	log.Println(strings.Repeat("=", 80))
+
+	dur := time.Since(start)
+
+	if numErrors > 0 {
+		log.Fatalf(
+			"Indexed [%d] documents with [%d] errors in %s (%.0f docs/sec)",
+			numIndexed,
+			numErrors,
+			dur.Truncate(time.Millisecond),
+			1000.0/float64(dur/time.Millisecond)*float64(numIndexed),
+		)
+	} else {
+		log.Printf(
+			"Sucessfuly indexed [%d] documents in %s (%.0f docs/sec)",
+			numIndexed,
+			dur.Truncate(time.Millisecond),
+			1000.0/float64(dur/time.Millisecond)*float64(numIndexed),
+		)
+	}
 }

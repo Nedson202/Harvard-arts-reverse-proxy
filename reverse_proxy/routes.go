@@ -23,7 +23,7 @@ func (app App) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 
 func (app App) getHealthChecker() Route {
 	healthCheckRoute = Route{
-		"Index",
+		"HealthCheck",
 		"GET",
 		"/health",
 		app.healthCheckHandler,
@@ -35,19 +35,19 @@ func (app App) getHealthChecker() Route {
 func (app App) getCollectionRoutes() []Route {
 	collectionsRoute = append(collectionsRoute,
 		Route{
-			"Index",
+			"Objects",
 			"GET",
 			"/harvard-arts/object",
 			app.GetCollections,
 		},
 		Route{
-			"Index",
+			"Object",
 			"GET",
 			"/harvard-arts/object/{objectId}",
 			app.GetCollection,
 		},
 		Route{
-			"Index",
+			"Search",
 			"GET",
 			"/harvard-arts/search",
 			app.SearchCollections,
@@ -60,7 +60,7 @@ func (app App) getCollectionRoutes() []Route {
 func (app App) getPublicationRoutes() []Route {
 	publicationsRoute = append(publicationsRoute,
 		Route{
-			"Index",
+			"Publications",
 			"GET",
 			"/harvard-arts/publications",
 			app.GetPublications,
@@ -73,13 +73,13 @@ func (app App) getPublicationRoutes() []Route {
 func (app App) getPlacesRoutes() []Route {
 	placesRoute = append(placesRoute,
 		Route{
-			"Index",
+			"PlaceIDs",
 			"GET",
 			"/harvard-arts/places/id",
 			app.GetPlaceIds,
 		},
 		Route{
-			"Index",
+			"Places",
 			"GET",
 			"/harvard-arts/places",
 			app.GetPlaces,
