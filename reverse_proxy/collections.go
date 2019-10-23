@@ -35,15 +35,14 @@ func (app App) GetCollections(w http.ResponseWriter, r *http.Request) {
 		}
 
 		app.AddDataToRedis(redisHash, result)
+		app.ElasticBulkWrite(response.Records)
 	}
-
-	randomizedData := app.RandomizeData(response.Records)
 
 	app.RespondWithJSON(w, http.StatusOK,
 		RecordsPayload{
 			Error:   false,
 			Message: "Harvard art objects retrieved successfully",
-			Records: randomizedData,
+			Records: response.Records,
 		},
 	)
 
