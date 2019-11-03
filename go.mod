@@ -7,12 +7,12 @@ require (
 	github.com/elastic/go-elasticsearch/v8 v8.0.0-20191021115133-396f70f7f07d
 	github.com/go-redis/redis/v7 v7.0.0-beta.4
 	github.com/golang/protobuf v1.3.2 // indirect
-	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.3
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/onsi/ginkgo v1.10.2 // indirect
 	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rs/cors v1.7.0
 	github.com/stretchr/testify v1.2.2 // indirect
 	github.com/subosito/gotenv v1.2.0
 	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582 // indirect

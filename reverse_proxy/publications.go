@@ -14,7 +14,7 @@ func (app App) GetPublications(w http.ResponseWriter, r *http.Request) {
 	size := r.URL.Query().Get("size")
 	year := r.URL.Query().Get("year")
 
-	redisHash := fmt.Sprintf("size %s - page %s - publications", size, page)
+	redisHash := fmt.Sprintf("size %s - page %s - publications - year %s", size, page, year)
 	publicationsFromRedis := app.GetDataFromRedis(redisHash)
 
 	redisDataToByte := []byte(publicationsFromRedis)

@@ -120,8 +120,8 @@ type CollectionsObject struct {
 	Datebegin           int         `json:"datebegin"`
 	Dated               string      `json:"dated"`
 	Dateend             int         `json:"dateend"`
-	Dateoffirstpageview string      `json:"dateoffirstpageview"`
-	Dateoflastpageview  string      `json:"dateoflastpageview"`
+	Dateoffirstpageview string      `json:"dateoffirstpageview,omitempty"`
+	Dateoflastpageview  string      `json:"dateoflastpageview,omitempty"`
 	Department          string      `json:"department"`
 	Description         interface{} `json:"description"`
 	Details             struct {

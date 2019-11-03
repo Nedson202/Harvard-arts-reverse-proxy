@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	stringAction "strings"
 )
@@ -13,8 +14,8 @@ func (p *PlaceID) MarshalBinary() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-func (p *Place) MarshalBinary() ([]byte, error) {
-	return json.Marshal(p)
+func (place *Place) MarshalBinary() ([]byte, error) {
+	return json.Marshal(place)
 }
 
 func (app App) GetPlaceIds(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +34,7 @@ func (app App) GetPlaceIds(w http.ResponseWriter, r *http.Request) {
 		log.Println(err, "Error parsing size to number")
 	}
 
-	redisHash := "all_parent_IDS_for_places"
+	redisHash := "all_places_IDs"
 	placesDataFromRedis := app.GetDataFromRedis(redisHash)
 
 	redisDataToByte := []byte(placesDataFromRedis)
@@ -43,6 +44,7 @@ func (app App) GetPlaceIds(w http.ResponseWriter, r *http.Request) {
 
 	if allPlacesIdsRedis == nil {
 		places, _ := app.ReadPlacesData()
+		app.AddDataToRedis(redisHash, places)
 		allPlacesIdsRedis = places
 	}
 
@@ -65,12 +67,16 @@ func (app App) GetPlaces(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	placeID := r.URL.Query().Get("placeId")
-	parsePlaceID, err := strconv.ParseInt(placeID, 10, 64)
-	if err != nil {
-		log.Println(err, "Error parsing placeId to number")
+	var parsePlaceID int64
+
+	if placeID != "" {
+		parsePlaceID, err = strconv.ParseInt(placeID, 10, 64)
+		if err != nil {
+			log.Println(err, "Error parsing placeId to number")
+		}
 	}
 
-	redisHash := "all_places_2356"
+	redisHash := "all_places"
 	placesDataFromRedis := app.GetDataFromRedis(redisHash)
 
 	redisDataToByte := []byte(placesDataFromRedis)
@@ -80,6 +86,7 @@ func (app App) GetPlaces(w http.ResponseWriter, r *http.Request) {
 
 	if allPlaces == nil {
 		_, parsedData := app.ReadPlacesData()
+		app.AddDataToRedis(redisHash, parsedData)
 		allPlaces = parsedData
 	}
 
@@ -108,10 +115,7 @@ func (app App) GetPlaces(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (app App) ReadPlacesData() (places []PlaceID, parsedData []Place) {
-	const allPlacesHash = "all_places_2356"
-	const placeIdsHash = "all_parent_IDS_for_places"
-
+func (app App) ReadPlacesData() (placeIDs []PlaceID, parsedData []Place) {
 	data, err := ioutil.ReadFile("places.json")
 	if err != nil {
 		log.Println("File reading error", err)
@@ -161,14 +165,21 @@ func (app App) ReadPlacesData() (places []PlaceID, parsedData []Place) {
 		_, ok := hashIDs[pathForward]
 
 		if !ok {
-			places = append(places, parent)
+			placeIDs = append(placeIDs, parent)
 		}
 
 		hashIDs[pathForward] = place
 	}
 
-	app.AddDataToRedis(placeIdsHash, places)
-	app.AddDataToRedis(allPlacesHash, parsedData)
+	placeIDs = app.sortPlaceIDs(placeIDs)
 
 	return
+}
+
+func (app App) sortPlaceIDs(placeIDs []PlaceID) []PlaceID {
+	sort.SliceStable(placeIDs, func(i, j int) bool {
+		return placeIDs[i].PathForward < placeIDs[j].PathForward
+	})
+
+	return placeIDs
 }
