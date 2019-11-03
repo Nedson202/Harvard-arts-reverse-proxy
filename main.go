@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/nedson202/harvard-arts-reverse-proxy/reverse_proxy"
+	"github.com/rs/cors"
 
-	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/subosito/gotenv"
 )
@@ -25,8 +25,10 @@ func main() {
 
 	router := mux.NewRouter()
 
-	allowedOrigins := handlers.AllowedOrigins([]string{"*"})
-	allowedMethods := handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "PUT"})
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+	})
 
 	port := os.Getenv("PORT")
 	redisHost := os.Getenv("REDIS_URL")
@@ -43,7 +45,7 @@ func main() {
 
 	server := &http.Server{
 		// launch server with CORS validations
-		Handler:      handlers.CORS(allowedOrigins, allowedMethods)(router),
+		Handler:      c.Handler(router),
 		Addr:         combineServerAddress,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,

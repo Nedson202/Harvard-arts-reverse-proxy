@@ -13,6 +13,7 @@ require (
 	github.com/onsi/ginkgo v1.10.2 // indirect
 	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rs/cors v1.7.0
 	github.com/stretchr/testify v1.2.2 // indirect
 	github.com/subosito/gotenv v1.2.0
 	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582 // indirect
