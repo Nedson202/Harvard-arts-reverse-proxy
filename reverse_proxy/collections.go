@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func (app App) GetCollections(w http.ResponseWriter, r *http.Request) {
+func (app App) getCollections(w http.ResponseWriter, r *http.Request) {
 	var response CollectionsResponse
 	var err error
 
@@ -17,28 +17,27 @@ func (app App) GetCollections(w http.ResponseWriter, r *http.Request) {
 	size := r.URL.Query().Get("size")
 
 	redisHash := fmt.Sprintf("objects - size %s - page %s", size, page)
-	collectionsFromRedis := app.GetDataFromRedis(redisHash)
+	collectionsFromRedis := app.getDataFromRedis(redisHash)
 
-	redisDataToByte := []byte(collectionsFromRedis)
-	if err = json.Unmarshal(redisDataToByte, &response); err != nil {
+	if err = json.Unmarshal([]byte(collectionsFromRedis), &response); err != nil {
 		log.Println(err)
 	}
 
 	if response.Records == nil {
 		requestURL := fmt.Sprintf("object?apikey=%s&hasimage=1&size=%s&page=%s", app.harvardAPIKey, size, page)
 
-		result := app.RetrieveDataFromHarvardAPI(requestURL)
+		result := app.retrieveDataFromHarvardAPI(requestURL)
 		if err = json.Unmarshal(result, &response); err != nil {
 			log.Println(err)
 
 			return
 		}
 
-		app.AddDataToRedis(redisHash, result)
-		app.ElasticBulkWrite(response.Records)
+		app.addDataToRedis(redisHash, result)
+		app.elasticBulkWrite(response.Records)
 	}
 
-	app.RespondWithJSON(w, http.StatusOK,
+	app.respondWithJSON(w, http.StatusOK,
 		RecordsPayload{
 			Error:   false,
 			Message: "Harvard art objects retrieved successfully",
@@ -49,7 +48,7 @@ func (app App) GetCollections(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (app App) GetCollection(w http.ResponseWriter, r *http.Request) {
+func (app App) getCollection(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	var err error
 
@@ -57,15 +56,14 @@ func (app App) GetCollection(w http.ResponseWriter, r *http.Request) {
 	objectID := params["objectId"]
 
 	redisHash := fmt.Sprintf("objectId-%s", objectID)
-	objectFromRedis := app.GetDataFromRedis(redisHash)
+	objectFromRedis := app.getDataFromRedis(redisHash)
 
-	redisDataToByte := []byte(objectFromRedis)
-	if err := json.Unmarshal(redisDataToByte, &response); err != nil {
+	if err := json.Unmarshal([]byte(objectFromRedis), &response); err != nil {
 		log.Println(err)
 	}
 
 	if response != nil {
-		app.RespondWithJSON(w, http.StatusOK,
+		app.respondWithJSON(w, http.StatusOK,
 			RecordPayload{
 				Error:   false,
 				Message: "Harvard art objects retrieved successfully",
@@ -78,16 +76,16 @@ func (app App) GetCollection(w http.ResponseWriter, r *http.Request) {
 
 	requestURL := fmt.Sprintf("object/%s?apikey=%s", objectID, app.harvardAPIKey)
 
-	result := app.RetrieveDataFromHarvardAPI(requestURL)
+	result := app.retrieveDataFromHarvardAPI(requestURL)
 	if err = json.Unmarshal(result, &response); err != nil {
 		log.Println(err)
 
 		return
 	}
 
-	app.AddDataToRedis(redisHash, result)
+	app.addDataToRedis(redisHash, result)
 
-	app.RespondWithJSON(w, http.StatusOK,
+	app.respondWithJSON(w, http.StatusOK,
 		RecordPayload{
 			Error:   false,
 			Message: "Harvard art objects retrieved successfully",

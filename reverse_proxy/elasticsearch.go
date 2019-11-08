@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v8"
@@ -35,7 +33,7 @@ func ConnectElasticClient(elasticSearchURL string) (client *elasticsearch.Client
 
 	client, err = elasticsearch.NewClient(cfg)
 	if err != nil {
-		log.Println("Error creating the client: %s", err)
+		log.Printf("Error creating the client: %s", err)
 
 		return
 	}
@@ -55,7 +53,7 @@ func verifyOrCreateIndex(ctx context.Context, indices []string, client *elastics
 
 	indexExistsRes, err := req.Do(ctx, client)
 	if err != nil {
-		log.Println("Error getting response: %s", err)
+		log.Printf("Error getting response: %s", err)
 
 		return
 	}
@@ -68,11 +66,11 @@ func verifyOrCreateIndex(ctx context.Context, indices []string, client *elastics
 
 		indexCreateRes, err := req.Do(ctx, client)
 		if err != nil {
-			log.Println("Error getting response: %s", err)
+			log.Printf("Error getting response: %s", err)
 		}
 
 		if !indexCreateRes.IsError() {
-			log.Println("Index specified created successfully")
+			log.Printf("Index specified created successfully")
 			createMapping(ctx, indices, client)
 		}
 	}
@@ -116,7 +114,7 @@ func createMapping(ctx context.Context, indices []string, client *elasticsearch.
 
 	putMappingRes, err := req.Do(ctx, client)
 	if err != nil {
-		log.Println("Error getting response: %s", err)
+		log.Printf("Error getting response: %s", err)
 
 		return
 	}
@@ -128,7 +126,7 @@ func createMapping(ctx context.Context, indices []string, client *elasticsearch.
 	}
 }
 
-func (app App) SearchCollections(w http.ResponseWriter, r *http.Request) {
+func (app App) searchCollections(w http.ResponseWriter, r *http.Request) {
 	var resultHits map[string]interface{}
 	ctx := context.Background()
 
@@ -161,6 +159,7 @@ func (app App) SearchCollections(w http.ResponseWriter, r *http.Request) {
 		app.elasticClient.Search.WithTrackTotalHits(true),
 		app.elasticClient.Search.WithPretty(),
 	)
+
 	if err != nil {
 		log.Fatalf("Error getting response: %s", err)
 	}
@@ -171,7 +170,6 @@ func (app App) SearchCollections(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(searchRes.Body).Decode(&e); err != nil {
 			log.Printf("Error parsing the response body: %s", err)
 		} else {
-			// Print the response status and error information.
 			log.Printf("[%s] %s: %s",
 				searchRes.Status(),
 				e["error"].(map[string]interface{})["type"],
@@ -189,7 +187,7 @@ func (app App) SearchCollections(w http.ResponseWriter, r *http.Request) {
 		searchResults = append(searchResults, hit.(map[string]interface{})["_source"])
 	}
 
-	app.RespondWithJSON(w, http.StatusOK,
+	app.respondWithJSON(w, http.StatusOK,
 		SearchResultsPayload{
 			Error:   false,
 			Message: "Harvard art objects retrieved successfully",
@@ -200,15 +198,7 @@ func (app App) SearchCollections(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (app App) ElasticBulkWrite(collections []CollectionsObject) {
-	var (
-		_ = fmt.Print
-	)
-
-	flag.Parse()
-
-	log.SetFlags(0)
-
+func (app App) elasticBulkWrite(collections []CollectionsObject) {
 	type bulkResponse struct {
 		Errors bool `json:"errors"`
 		Items  []struct {
@@ -243,23 +233,20 @@ func (app App) ElasticBulkWrite(collections []CollectionsObject) {
 
 	start := time.Now().UTC()
 
-	// Loop over the collection
 	for _, c := range collections {
 		numItems++
 
-		// Prepare the metadata payload
 		meta := []byte(
 			fmt.Sprintf(`{ "index" : { "_id" : "%d" } }%s`, c.ID, "\n"),
 		)
-		// Prepare the data payload: encode article to JSON
+
 		data, err := json.Marshal(c)
 		if err != nil {
-			log.Println("Cannot encode article %d: %s", c.ID, err)
+			log.Printf("Cannot encode article %d: %s", c.ID, err)
 
 			return
 		}
 
-		// Append newline to the data payload
 		data = append(data, "\n"...)
 
 		buf.Grow(len(meta) + len(data))
@@ -274,7 +261,7 @@ func (app App) ElasticBulkWrite(collections []CollectionsObject) {
 	)
 
 	if err != nil {
-		log.Printf("Failure indexing batch %d: %s", err)
+		log.Println("Failure indexing data", err)
 
 		return
 	}
@@ -284,7 +271,7 @@ func (app App) ElasticBulkWrite(collections []CollectionsObject) {
 		if err := json.NewDecoder(res.Body).Decode(&raw); err != nil {
 			log.Printf("Failure to to parse response body: %s", err)
 		} else {
-			log.Printf("  Error: [%d] %s: %s",
+			log.Printf("Error: [%d] %s: %s",
 				res.StatusCode,
 				raw["error"].(map[string]interface{})["type"],
 				raw["error"].(map[string]interface{})["reason"],
@@ -297,12 +284,9 @@ func (app App) ElasticBulkWrite(collections []CollectionsObject) {
 			log.Fatalf("Failure to to parse response body: %s", err)
 		} else {
 			for _, d := range blk.Items {
-				// ... so for any HTTP status above 201 ...
 				if d.Index.Status > 201 {
-					// ... increment the error counter ...
 					numErrors++
 
-					// ... and print the response status and error information ...
 					log.Printf("  Error: [%d]: %s: %s: %s: %s",
 						d.Index.Status,
 						d.Index.Error.Type,
@@ -318,14 +302,7 @@ func (app App) ElasticBulkWrite(collections []CollectionsObject) {
 		}
 	}
 
-	// Close the response body, to prevent reaching the limit for goroutines or file handles
 	res.Body.Close()
-
-	// Reset the buffer and items counter
-	// buf.Reset()
-
-	// Report the results: number of indexed docs, number of errors, duration, indexing rate
-	log.Println(strings.Repeat("=", 80))
 
 	dur := time.Since(start)
 
