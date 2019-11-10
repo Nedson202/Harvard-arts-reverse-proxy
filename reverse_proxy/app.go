@@ -8,7 +8,6 @@ func New(redisHost string, router *mux.Router, baseURL string, harvardAPIKey str
 	app.baseURL = baseURL
 	app.harvardAPIKey = harvardAPIKey
 
-	// Connect redis client
 	client := ConnectRedisClient(redisHost)
 	app.redisClient = client
 
@@ -17,7 +16,7 @@ func New(redisHost string, router *mux.Router, baseURL string, harvardAPIKey str
 		app.elasticClient = elasticSearchClient
 	}
 
-	app.NewRouter(router)
+	app.newRouter(router)
 
 	return
 }

@@ -16,9 +16,10 @@ type App struct {
 
 // Route defines a structure for routes
 type Route struct {
-	Name        string
-	Method      string
-	Pattern     string
+	Name    string
+	Method  string
+	Pattern string
+
 	HandlerFunc http.HandlerFunc
 }
 

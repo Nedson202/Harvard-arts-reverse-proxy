@@ -38,7 +38,7 @@ func ConnectRedisClient(redisHost string) (client *redis.Client) {
 	return
 }
 
-func (app App) GetDataFromRedis(redisHash string) (data string) {
+func (app App) getDataFromRedis(redisHash string) (data string) {
 	data, err := app.redisClient.Get(redisHash).Result()
 
 	if err != nil {
@@ -50,7 +50,7 @@ func (app App) GetDataFromRedis(redisHash string) (data string) {
 	return data
 }
 
-func (app App) AddDataToRedis(redisHash string, data interface{}) {
+func (app App) addDataToRedis(redisHash string, data interface{}) {
 	err := app.redisClient.Set(redisHash, data, 0).Err()
 
 	if err != nil {

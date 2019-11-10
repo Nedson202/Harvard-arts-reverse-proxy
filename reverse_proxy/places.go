@@ -18,7 +18,7 @@ func (place *Place) MarshalBinary() ([]byte, error) {
 	return json.Marshal(place)
 }
 
-func (app App) GetPlaceIds(w http.ResponseWriter, r *http.Request) {
+func (app App) getPlaceIds(w http.ResponseWriter, r *http.Request) {
 	var allPlacesIdsRedis []PlaceID
 
 	from := r.URL.Query().Get("from")
@@ -35,22 +35,21 @@ func (app App) GetPlaceIds(w http.ResponseWriter, r *http.Request) {
 	}
 
 	redisHash := "all_places_IDs"
-	placesDataFromRedis := app.GetDataFromRedis(redisHash)
+	placesDataFromRedis := app.getDataFromRedis(redisHash)
 
-	redisDataToByte := []byte(placesDataFromRedis)
-	if err = json.Unmarshal(redisDataToByte, &allPlacesIdsRedis); err != nil {
+	if err = json.Unmarshal([]byte(placesDataFromRedis), &allPlacesIdsRedis); err != nil {
 		log.Println(err, "PlaceIds retrieval from redis")
 	}
 
 	if allPlacesIdsRedis == nil {
 		places, _ := app.ReadPlacesData()
-		app.AddDataToRedis(redisHash, places)
+		app.addDataToRedis(redisHash, places)
 		allPlacesIdsRedis = places
 	}
 
 	partitionData := allPlacesIdsRedis[parseFrom : parseSize+parseFrom]
 
-	app.RespondWithJSON(w, http.StatusOK,
+	app.respondWithJSON(w, http.StatusOK,
 		PlaceIdPayload{
 			Error:   false,
 			Message: "Harvard art place IDs retrieved successfully",
@@ -61,7 +60,7 @@ func (app App) GetPlaceIds(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (app App) GetPlaces(w http.ResponseWriter, r *http.Request) {
+func (app App) getPlaces(w http.ResponseWriter, r *http.Request) {
 	var allPlaces []Place
 	var filteredPlaces []Place
 	var err error
@@ -77,16 +76,15 @@ func (app App) GetPlaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	redisHash := "all_places"
-	placesDataFromRedis := app.GetDataFromRedis(redisHash)
+	placesDataFromRedis := app.getDataFromRedis(redisHash)
 
-	redisDataToByte := []byte(placesDataFromRedis)
-	if err = json.Unmarshal(redisDataToByte, &allPlaces); err != nil {
+	if err = json.Unmarshal([]byte(placesDataFromRedis), &allPlaces); err != nil {
 		log.Println(err, "Places data retrieval from redis")
 	}
 
 	if allPlaces == nil {
 		_, parsedData := app.ReadPlacesData()
-		app.AddDataToRedis(redisHash, parsedData)
+		app.addDataToRedis(redisHash, parsedData)
 		allPlaces = parsedData
 	}
 
@@ -104,7 +102,7 @@ func (app App) GetPlaces(w http.ResponseWriter, r *http.Request) {
 		allPlaces = allPlaces[0:100]
 	}
 
-	app.RespondWithJSON(w, http.StatusOK,
+	app.respondWithJSON(w, http.StatusOK,
 		PlacesPayload{
 			Error:   false,
 			Message: "Harvard art place IDs retrieved successfully",
@@ -116,6 +114,8 @@ func (app App) GetPlaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app App) ReadPlacesData() (placeIDs []PlaceID, parsedData []Place) {
+	hashIDs := make(map[string]interface{})
+
 	data, err := ioutil.ReadFile("places.json")
 	if err != nil {
 		log.Println("File reading error", err)
@@ -123,12 +123,9 @@ func (app App) ReadPlacesData() (placeIDs []PlaceID, parsedData []Place) {
 		return
 	}
 
-	dataToByte := []byte(data)
-	if err := json.Unmarshal(dataToByte, &parsedData); err != nil {
+	if err := json.Unmarshal([]byte(data), &parsedData); err != nil {
 		log.Println("Unable to parse json file data", err)
 	}
-
-	hashIDs := make(map[string]interface{})
 
 	for _, place := range parsedData {
 		var pathForward string
